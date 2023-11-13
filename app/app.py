@@ -3,6 +3,7 @@ import os
 from flask import Flask, jsonify
 from . import db
 
+
 app = Flask(__name__)
 
 app.config.from_mapping(
@@ -27,6 +28,10 @@ def hello_tda():
 def api():
     return jsonify({"secret": "The cake is a lie"})
 
+
+@app.route('/lecturer')
+def lecturer():
+    return render_template("lecturer.html")
 
 if __name__ == '__main__':
     app.run()

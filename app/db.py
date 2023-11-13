@@ -2,8 +2,11 @@ import click
 from flask import current_app, g
 from flask.cli import with_appcontext
 
+from dotenv import load_dotenv
 import sqlite3
 
+
+# TODO: tady mongodb až budu na intru
 
 def get_db():
     if 'db' not in g:
@@ -27,6 +30,8 @@ def init_db():
     """
     Inicializuje databázi dle schema.sql
     """
+    load_dotenv()
+
     db = get_db()
 
     with current_app.open_resource('schema.sql') as f:
