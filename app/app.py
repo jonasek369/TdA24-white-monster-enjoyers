@@ -5,6 +5,7 @@ from flask import Flask, jsonify, render_template, request, g
 import db
 from werkzeug.local import LocalProxy
 from dotenv import load_dotenv
+import uuid
 
 load_dotenv()
 
@@ -13,7 +14,6 @@ app = Flask(__name__, template_folder="../templates")
 db.init_app(app)
 
 collection: pymongo.collection.Collection = LocalProxy(db.get_db)
-
 
 app.config.from_mapping(
     DATABASE=os.path.join(app.instance_path, 'tourdeflask.sqlite'),
@@ -44,8 +44,10 @@ def api_lecturers(uuid):
             if not uuid:
                 return jsonify([i for i in collection.find()]), 200
             else:
-                print([for collection.find({"uuid": uuid})])
-                return None, 200
+                select = [i for i in collection.find({"uuid": uuid})]
+                if not select:
+                    return {"code": 404, "message": "User not found"}, 404
+                return "None", 200
         case "POST":
             pass
         case "PUT":
@@ -53,7 +55,7 @@ def api_lecturers(uuid):
         case "DELETE":
             pass
         case _:
-            return "Unsupported method", 405
+            return {"message": "Unsupported method", "code": 405}, 405
 
 
 @app.route("/lecturer")
