@@ -2,3 +2,4 @@ instance/
 local/
 .idea/
 app/__pycache__/
+.env
