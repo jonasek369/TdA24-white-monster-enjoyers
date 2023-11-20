@@ -5,6 +5,7 @@ import os
 
 uri = ""
 
+
 def get_db():
     if 'mongo_client' not in g:
         g.mongo_client = MongoClient(uri)

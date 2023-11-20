@@ -78,9 +78,9 @@ def api_lecturers(uuid):
     match request.method:
         case "GET":
             if not uuid:
-                return jsonify([i for i in database["lecturers"].find()]), 200
+                return jsonify([i for i in database["lecturer"].find({}, {"_id": 0})]), 200
             else:
-                select = [i for i in database["lecturers"].find({"uuid": uuid})]
+                select = [i for i in database["lecturer"].find({"uuid": uuid})]
                 if not select:
                     return {"code": 404, "message": "User not found"}, 404
                 return "None", 200
@@ -91,7 +91,7 @@ def api_lecturers(uuid):
             if not check_keys(data):
                 return {"code": 403, "message": "Cannot add lecturer. Json dose not have all the needed keys"}, 403
             if uuid:
-                select = [i for i in database["lecturers"].find({"uuid": uuid})]
+                select = [i for i in database["lecturer"].find({"uuid": uuid})]
                 if select:
                     return {"code": 403, "message": "Lecturer with this uuid already exists"}
             data["tags"] = [i["name"].capitalize() for i in data["tags"]]

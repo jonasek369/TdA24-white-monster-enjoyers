@@ -2,11 +2,58 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Lecturer</title>
-    <link rel= "stylesheet" type= "text/css" href= "{{ url_for('static',filename='styles/lecturers.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='styles/lecturer.css') }}">
+    <title>Ukázková Stránka</title>
 </head>
 <body>
-    <!-- Honza zde bude pracovat Surely-->
-    <h1>Test</h1>
+
+<div id="banner">
+    <h1>Vítejte na Ukázkové Stránce</h1>
+    <img id="logo" src="{{ url_for('static',filename='img/TeacherDigitalAgency_LOGO_colour-white.svg') }}" alt="Logo">
+</div>
+
+<div id="content">
+    <div id="business-card">
+        <h2>Kontakt</h2>
+        <br>
+    </div>
+</div>
+
+<script>
+    fetch("/api/lecturers", {"method": "GET"})
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(jsonData => {
+            if(!jsonData)
+                throw new Error("Server responded with empty list of lecturers");
+            jsonData = jsonData[0]
+            let card = document.getElementById("business-card");
+            let nameElement = document.createElement("span");
+            let location = document.createElement("p");
+            let claim = document.createElement("p");
+            let pfp = document.createElement("img");
+            let bio = document.createElement("p");
+
+            bio.innerText = jsonData["bio"] || ""
+            pfp.src = jsonData["picture_url"] || ""
+            location.innerText = `${jsonData["location"] || ""}`;
+            claim.innerText = `${jsonData["claim"] || ""}`;
+            nameElement.innerText = `${jsonData["title_before"] || ""} ${jsonData["first_name"]} ${jsonData["middle_name"] || ""} ${jsonData["last_name"]} ${jsonData["title_after" || ""]}`;
+            card.append(nameElement);
+            card.append(location);
+            card.append(claim);
+            card.append(pfp);
+            card.append(bio);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+</script>
+
 </body>
 </html>
