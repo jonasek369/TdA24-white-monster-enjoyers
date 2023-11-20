@@ -36,6 +36,11 @@ def api():
     return jsonify({"secret": "The cake is a lie"}), 200
 
 
+@app.route("/debug/db-check")
+def dbcheck():
+    return str(str(database).__contains__("connect=True"))
+
+
 def check_keys(data):
     for key in ["first_name", "last_name"]:
         if key not in data:

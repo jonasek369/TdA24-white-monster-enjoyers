@@ -3,3 +3,4 @@ local/
 .idea/
 app/__pycache__/
 .env
+start.bat
