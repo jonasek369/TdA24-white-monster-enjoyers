@@ -2,7 +2,7 @@ import os
 
 import pymongo
 from flask import Flask, jsonify, render_template, request, g
-import db
+from . import db
 from werkzeug.local import LocalProxy
 from dotenv import load_dotenv
 from uuid import uuid4
