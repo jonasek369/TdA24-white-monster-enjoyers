@@ -87,7 +87,7 @@ def api_lecturers(uuid):
                 select = [i for i in database["lecturer"].find({"uuid": uuid})]
                 if not select:
                     return {"code": 404, "message": "User not found"}, 404
-                return "None", 200
+                return select[0], 200
         case "POST":
             data = request.json
             if not data:
@@ -133,5 +133,5 @@ def lecturer():
 
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)
     db.close_db()
