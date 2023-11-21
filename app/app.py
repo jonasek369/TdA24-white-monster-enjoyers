@@ -38,7 +38,8 @@ def api():
 
 @app.route("/debug/db-check")
 def dbcheck():
-    return str(str(database).__contains__("connect=True")) + str(os.listdir())
+    # need to find where the .env is
+    return str(str(database).__contains__("connect=True")) + str([i for i in os.walk(os.getcwd())])
 
 
 def check_keys(data):
