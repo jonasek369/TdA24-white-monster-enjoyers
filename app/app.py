@@ -38,7 +38,7 @@ def api():
 
 @app.route("/debug/db-check")
 def dbcheck():
-    return str(str(database).__contains__("connect=True"))
+    return str(str(database).__contains__("connect=True")) + str(os.listdir())
 
 
 def check_keys(data):
@@ -53,7 +53,6 @@ def check_keys(data):
 
 
 def get_lecturer_from_data(data, uuid, tags):
-    print(tags)
     contact = {
         "telephone_number": data["contact"]["telephone_numbers"],
         "email": data["contact"]["emails"]
@@ -69,7 +68,7 @@ def get_lecturer_from_data(data, uuid, tags):
         "picture_url": data.get("picture_url"),
         "location": data.get("location"),
         "claim": data.get("claim"),
-        "bio": data.get("bio"),
+        "bio": data.get("bio").replace("<script>", "").replace("</script>", ""),
         "tags": tags,
         "price_per_hour": data.get("price_per_hour"),
         "contact": contact
