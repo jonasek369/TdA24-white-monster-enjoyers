@@ -76,7 +76,6 @@ def get_lecturer_from_data(data, uuid, tags):
     }
 
 
-# TODO: Finish
 @app.route("/api/lecturers/<uuid>", methods=["GET", "PUT", "DELETE"])
 @app.route("/api/lecturers", methods=["GET", "POST"], defaults={"uuid": 0})
 def api_lecturers(uuid):
