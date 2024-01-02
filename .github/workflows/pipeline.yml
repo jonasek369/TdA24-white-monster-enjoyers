@@ -20,10 +20,6 @@ jobs:
           tags: tda-flask:latest
           outputs: type=docker,dest=/tmp/tda-flask.tar
 
-      - name: Create env file
-        run: |
-          echo "${{ secrets.ENV_FILE }}" > .env
-
       - name: Upload to TdA
         uses: Tour-de-App/upload-app@tda-24
         with:
