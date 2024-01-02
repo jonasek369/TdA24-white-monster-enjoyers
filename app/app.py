@@ -1,22 +1,16 @@
+import json
 import os
-
-import pymongo
-from flask import Flask, jsonify, render_template, request, g
-from . import db
-from werkzeug.local import LocalProxy
-from dotenv import load_dotenv
 from uuid import uuid4
 
-load_dotenv()
+from flask import Flask, jsonify, render_template, request
+from . import db
+import html
+from pprint import pprint
 
-app = Flask(__name__, template_folder="../templates", static_folder="../static")
-
-db.init_app(app)
-
-database: pymongo.collection.Collection = LocalProxy(db.get_db)
+app = Flask(__name__, static_folder="../static", template_folder="../templates")
 
 app.config.from_mapping(
-    DATABASE=os.path.join(app.instance_path, 'tourdeflask.sqlite'),
+    DATABASE=os.path.join(app.instance_path, 'database.db'),
 )
 
 # ensure the instance folder exists
@@ -24,6 +18,8 @@ try:
     os.makedirs(app.instance_path)
 except OSError:
     pass
+
+db.init_app(app)
 
 
 @app.route('/')
@@ -36,16 +32,9 @@ def api():
     return jsonify({"secret": "The cake is a lie"}), 200
 
 
-@app.route("/debug/db-check")
-def dbcheck():
-    # need to find where the .env is
-    return str(str(database).__contains__("connect=True")) + str([i for i in os.walk(os.getcwd())])
-
-
 def check_keys(data):
     for key in ["first_name", "last_name"]:
         if key not in data:
-            print("dosent have", key)
             return False
     for nested_keys in [["contact", "telephone_numbers"], ["contact", "emails"]]:
         if not data.get(nested_keys[0]) or nested_keys[1] not in data.get(nested_keys[0]):
@@ -53,7 +42,7 @@ def check_keys(data):
     return True
 
 
-def get_lecturer_from_data(data, uuid, tags):
+def get_lecturer_as_json(data, uuid, tags):
     contact = {
         "telephone_number": data["contact"]["telephone_numbers"],
         "email": data["contact"]["emails"]
@@ -70,55 +59,94 @@ def get_lecturer_from_data(data, uuid, tags):
         "location": data.get("location"),
         "claim": data.get("claim"),
         "bio": data.get("bio").replace("<script>", "").replace("</script>", ""),
-        "tags": tags,
+        "tags": [{"uuid": tag[0], "name": tag[1]} for tag in tags],
         "price_per_hour": data.get("price_per_hour"),
         "contact": contact
     }
 
 
+def get_lecturer_db_insert_value(data, uuid, tags):
+    contact = {
+        "telephone_number": [html.escape(i) for i in data["contact"]["telephone_numbers"]],
+        "emails": [html.escape(i) for i in data["contact"]["emails"]],
+    }
+    data = [
+        uuid if uuid else str(uuid4()),
+        data.get("title_before"),
+        data.get("first_name"),
+        data.get("middle_name"),
+        data.get("last_name"),
+        data.get("title_after"),
+        data.get("picture_url"),
+        data.get("location"),
+        data.get("claim"),
+        data.get("bio"),
+        "|".join([tag[0] for tag in tags]),
+        data.get("price_per_hour"),
+    ]
+    for index, value in enumerate(data.copy()):
+        if isinstance(value, str):
+            data[index] = html.escape(value)
+    # add it later so it doesn't get escaped
+    data.append(json.dumps(contact))
+    return data
+
+
 @app.route("/api/lecturers/<uuid>", methods=["GET", "PUT", "DELETE"])
 @app.route("/api/lecturers", methods=["GET", "POST"], defaults={"uuid": 0})
 def api_lecturers(uuid):
+    database = db.get_db()
+    cursor = database.cursor()
     match request.method:
         case "GET":
             if not uuid:
-                return jsonify([i for i in database["lecturer"].find({}, {"_id": 0})]), 200
+                cursor.execute("SELECT * FROM lecturers")
+                return jsonify(cursor.fetchall()), 200
             else:
-                select = [i for i in database["lecturer"].find({"uuid": uuid})]
-                if not select:
+                cursor.execute("SELECT * FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
+                fetch = cursor.fetchall()
+                if not fetch:
                     return {"code": 404, "message": "User not found"}, 404
-                return select[0], 200
+                return fetch[0], 200
         case "POST":
             data = request.json
             if not data:
                 return {"code": 403, "message": "Cannot add lecturer without any data"}, 403
             if not check_keys(data):
                 return {"code": 403, "message": "Cannot add lecturer. Json dose not have all the needed keys"}, 403
-            if uuid:
-                select = [i for i in database["lecturer"].find({"uuid": uuid})]
-                if select:
-                    return {"code": 403, "message": "Lecturer with this uuid already exists"}
-            data["tags"] = [i["name"].capitalize() for i in data["tags"]]
-
-            query = {"name": {"$in": data["tags"]}}
-            projection = {"name": 1, "uuid": 1, "_id": 0}
-            result = database["tags"].find(filter=query, projection=projection)
-            tags_in_db = [document["name"] for document in result]
+            if uuid or uuid != 0 or data["uuid"]:
+                if not uuid or uuid != 0:
+                    uuid = data["uuid"]
+                cursor.execute("SELECT * FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
+                fetch = cursor.fetchall()
+                if fetch:
+                    return {"code": 403, "message": "Lecturer with this uuid already exists"}, 403
+            else:
+                uuid = str(uuid4())
+            data["tags"] = [tag["name"].capitalize() for tag in data["tags"]]
+            placeholders = ",".join("?" for _ in data["tags"])
+            query = f"SELECT * FROM tags WHERE name IN ({placeholders})"
+            cursor.execute(query, data["tags"])
+            tags_in_db = cursor.fetchall()
 
             tags_not_in_db = [tag for tag in data["tags"] if tag not in tags_in_db]
+
             tags_to_db = []
-
             for tag in tags_not_in_db:
-                tags_to_db.append({"uuid": str(uuid4()), "name": tag})
-            if tags_to_db:
-                database["tags"].insert_many(tags_to_db)
+                tags_to_db.append((str(uuid4()), tag))
 
-            lect_to_db = get_lecturer_from_data(data, uuid,
-                                                [{"name": document.get("name"), "uuid": document.get("uuid")} for
-                                                 document in result] + tags_to_db)
-            # TODO: Check if this is right
-            database["lecturer"].insert_one(lect_to_db)
-            return lect_to_db
+            cursor.executemany("INSERT INTO tags VALUES (?, ?)", tags_to_db)
+
+            tags = tags_in_db + tags_to_db
+
+            value = get_lecturer_db_insert_value(data, uuid, tags)
+            return_value = get_lecturer_as_json(data, uuid, tags)
+            pprint(value)
+            pprint(return_value)
+
+            cursor.execute("INSERT INTO lecturers VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", value)
+            database.commit()
+            return jsonify(return_value), 200
         case "PUT":
             pass
         case "DELETE":
@@ -133,5 +161,6 @@ def lecturer():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
-    db.close_db()
+    print(html.escape("<script>alert('dog')</script>"))
+
+    # app.run(debug=True)

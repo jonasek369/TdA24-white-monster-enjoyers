@@ -31,6 +31,7 @@
         .then(jsonData => {
             if(!jsonData)
                 throw new Error("Server responded with empty list of lecturers");
+            console.log(jsonData);
             jsonData = jsonData[0]
             let card = document.getElementById("business-card");
             let nameElement = document.createElement("span");
@@ -38,6 +39,7 @@
             let claim = document.createElement("p");
             let pfp = document.createElement("img");
             let bio = document.createElement("p");
+
 
             bio.innerText = jsonData["bio"] || ""
             pfp.src = jsonData["picture_url"] || ""

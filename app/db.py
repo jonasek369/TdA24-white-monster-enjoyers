@@ -1,36 +1,48 @@
-from flask import g
+import click
+from flask import current_app, g
+from flask.cli import with_appcontext
 
-from pymongo.mongo_client import MongoClient
-import os
-
-uri = ""
+import sqlite3
 
 
 def get_db():
-    if 'mongo_client' not in g:
-        g.mongo_client = MongoClient(uri)
-        g.db = g.mongo_client["tda"]
+    if 'db' not in g:
+        g.db = sqlite3.connect(
+            current_app.config['DATABASE'],
+            detect_types=sqlite3.PARSE_DECLTYPES
+        )
+        g.db.row_factory = sqlite3.Row
+
     return g.db
 
 
 def close_db(e=None):
-    mongo_client = g.pop('mongo_client', None)
-    g.pop("db", None)
-    g.pop("collection", None)
+    db = g.pop('db', None)
 
-    if mongo_client is not None:
-        mongo_client.close()
+    if db is not None:
+        db.close()
 
 
-def init_db(app):
-    with app.app_context():
-        if 'mongo_client' not in g:
-            g.mongo_client = MongoClient(uri)
-            g.db = g.mongo_client["tda"]
-            g.collection = g.db["lecturers"]
+def init_db():
+    """
+    Inicializuje databázi dle schema.sql
+    """
+    db = get_db()
+
+    with current_app.open_resource('schema.sql') as f:
+        db.executescript(f.read().decode('utf8'))
+
+
+@click.command('init-db')
+@with_appcontext
+def init_db_command():
+    """
+    Definujeme příkaz příkazové řádky
+    """
+    init_db()
+    click.echo('Initialized the database.')
 
 
 def init_app(app):
-    global uri
-    uri = f"mongodb://{os.environ.get('DB_USERNAME')}:{os.environ.get('DB_PASSWORD')}@{os.environ.get('DB_URLS')}/?ssl=true&replicaSet=atlas-g84ywi-shard-0&authSource=admin&retryWrites=true&w=majority"
-    init_db(app)
+    app.teardown_appcontext(close_db)
+    app.cli.add_command(init_db_command)
