@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 flask = "*"
 colorama = "*"
+bs4 = "*"
 [dev-packages]
 
 [requires]

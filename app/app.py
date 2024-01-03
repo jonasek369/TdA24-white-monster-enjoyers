@@ -4,10 +4,11 @@ from uuid import uuid4
 
 from flask import Flask, jsonify, render_template, request
 from . import db
-import html
 
 import sys
 from io import StringIO
+from bs4 import BeautifulSoup
+
 
 # Create a StringIO object to capture the output
 output_buffer = StringIO()
@@ -40,6 +41,22 @@ def api():
     return jsonify({"secret": "The cake is a lie"}), 200
 
 
+def sanitize_html(input_string):
+    soup = BeautifulSoup(input_string, "html.parser")
+    allowed_tags = ["b", "i", "u", "br"]
+    for tag in soup.find_all(True):
+        if tag.name not in allowed_tags:
+            tag.replace_with(tag.text)
+    return str(soup)
+
+def save_conv(value, conv_to):
+    try:
+        return conv_to(value)
+    except Exception as e:
+        print(f"exception when converting {value} to {conv_to}: {e}")
+        # return default value if error
+        return conv_to()
+
 def check_keys(data):
     for key in ["first_name", "last_name"]:
         if key not in data:
@@ -52,51 +69,47 @@ def check_keys(data):
 
 def get_lecturer_as_json(data, uuid, tags):
     contact = {
-        "telephone_numbers": data["contact"]["telephone_numbers"],
-        "emails": data["contact"]["emails"]
+        "telephone_numbers": sanitize_html(data["contact"]["telephone_numbers"]),
+        "emails": sanitize_html(data["contact"]["emails"])
     }
 
     return {
-        "uuid": uuid if uuid else str(uuid4()),
-        "title_before": data.get("title_before"),
-        "first_name": data.get("first_name"),
-        "middle_name": data.get("middle_name"),
-        "last_name": data.get("last_name"),
-        "title_after": data.get("title_after"),
-        "picture_url": data.get("picture_url"),
-        "location": data.get("location"),
-        "claim": data.get("claim"),
-        "bio": data.get("bio").replace("<script>", "").replace("</script>", ""),
-        "tags": [{"uuid": tag[0], "name": tag[1]} for tag in tags],
-        "price_per_hour": data.get("price_per_hour"),
+        "uuid": sanitize_html(uuid) if uuid else str(uuid4()),
+        "title_before": sanitize_html(data.get("title_before")),
+        "first_name": sanitize_html(data.get("first_name")),
+        "middle_name": sanitize_html(data.get("middle_name")),
+        "last_name": sanitize_html(data.get("last_name")),
+        "title_after": sanitize_html(data.get("title_after")),
+        "picture_url": sanitize_html(data.get("picture_url")),
+        "location": sanitize_html(data.get("location")),
+        "claim": sanitize_html(data.get("claim")),
+        "bio": sanitize_html(data.get("bio")),
+        "tags": [{"uuid": sanitize_html(tag[0]), "name": sanitize_html(tag[1])} for tag in tags],
+        "price_per_hour": save_conv(data.get("price_per_hour"), int),
         "contact": contact
     }
 
 
 def get_lecturer_db_insert_value(data, uuid, tags):
     contact = {
-        "telephone_numbers": [html.escape(i) for i in data["contact"]["telephone_numbers"]],
-        "emails": [html.escape(i) for i in data["contact"]["emails"]],
+        "telephone_numbers": data["contact"]["telephone_numbers"],
+        "emails": data["contact"]["emails"],
     }
     data = [
-        uuid if uuid else str(uuid4()),
-        data.get("title_before"),
-        data.get("first_name"),
-        data.get("middle_name"),
-        data.get("last_name"),
-        data.get("title_after"),
-        data.get("picture_url"),
-        data.get("location"),
-        data.get("claim"),
-        data.get("bio"),
-        "|".join([tag[0] for tag in tags]),
-        data.get("price_per_hour"),
+        sanitize_html(uuid) if uuid else str(uuid4()),
+        sanitize_html(data.get("title_before")),
+        sanitize_html(data.get("first_name")),
+        sanitize_html(data.get("middle_name")),
+        sanitize_html(data.get("last_name")),
+        sanitize_html(data.get("title_after")),
+        sanitize_html(data.get("picture_url")),
+        sanitize_html(data.get("location")),
+        sanitize_html(data.get("claim")),
+        sanitize_html(data.get("bio")),
+        "|".join([sanitize_html(tag[0]) for tag in tags]),
+        save_conv(data.get("price_per_hour"), int),
+        json.dumps(contact)
     ]
-    for index, value in enumerate(data.copy()):
-        if isinstance(value, str):
-            data[index] = html.escape(value)
-    # add it later so it doesn't get escaped
-    data.append(json.dumps(contact))
     return data
 
 
