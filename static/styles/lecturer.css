@@ -11,15 +11,15 @@ body {
     padding: 10px;
     text-align: center;
     position: relative;
-    overflow: hidden; /* Přidejte tuto vlastnost pro omezení obsahu banneru */
+    overflow: hidden;
 }
 
 #logo {
     position: absolute;
-    top: 12.5px;
-    right: 12.5px;
-    max-width: 100px; /* Přizpůsobte velikost obrázku podle potřeby */
-    max-height: 100%; /* Přidejte tuto vlastnost pro zachování poměru stran obrázku */
+    top: 12px;
+    right: 12px;
+    max-width: 100px;
+    max-height: 100%;
 }
 
 #content {
@@ -34,4 +34,19 @@ body {
 #business-card {
     text-align: center;
     margin-top: 20px;
+}
+
+#tags-card {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+#tags-card p {
+    border: 1px solid black;
+    margin: 5px;
+    padding: 10px;
+    word-wrap: break-word;
+    background-color: #5FAFD7;
+    color: #000000;
+    border-radius: 10px 50px
 }

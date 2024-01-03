@@ -155,7 +155,7 @@ def api_lecturers(uuid):
                 return {"code": 403, "message": "Cannot add lecturer without any data"}, 403
             if not check_keys(data):
                 return {"code": 403, "message": "Cannot add lecturer. Json dose not have all the needed keys"}, 403
-            if uuid or uuid != 0 or data["uuid"]:
+            if uuid or uuid != 0 or data.get("uuid") is not None:
                 if not uuid or uuid != 0:
                     uuid = data["uuid"]
                 cursor.execute("SELECT * FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
@@ -197,11 +197,6 @@ def api_lecturers(uuid):
 @app.route("/lecturer")
 def lecturer():
     return render_template("lecturer.html"), 200
-
-
-@app.route("/logs")
-def logs():
-    return {"logs": str(output_buffer.getvalue())}
 
 
 if __name__ == '__main__':
