@@ -43,9 +43,10 @@ def check_keys(data):
 
 
 def get_lecturer_as_json(data, uuid, tags):
+    print(data)
     contact = {
-        "telephone_number": data["contact"]["telephone_numbers"],
-        "email": data["contact"]["emails"]
+        "telephone_numbers": data["contact"]["telephone_numbers"],
+        "emails": data["contact"]["emails"]
     }
 
     return {
@@ -67,7 +68,7 @@ def get_lecturer_as_json(data, uuid, tags):
 
 def get_lecturer_db_insert_value(data, uuid, tags):
     contact = {
-        "telephone_number": [html.escape(i) for i in data["contact"]["telephone_numbers"]],
+        "telephone_numbers": [html.escape(i) for i in data["contact"]["telephone_numbers"]],
         "emails": [html.escape(i) for i in data["contact"]["emails"]],
     }
     data = [
@@ -92,6 +93,35 @@ def get_lecturer_db_insert_value(data, uuid, tags):
     return data
 
 
+def parse_db_data_to_json(db_data, cursor) -> dict:
+    uuid, title_before, first_name, middle_name, last_name, title_after, picture_url, location, claim, bio, tags, price_per_hour, contact = db_data
+
+    tags_data = [i for i in tags.split("|")]
+
+    placeholders = ",".join("?" for _ in [i for i in tags.split("|")])
+    query = f"SELECT * FROM tags WHERE name IN ({placeholders})"
+    cursor.execute(query, tags_data)
+    tags_from_db = cursor.fetchall()
+
+    contact = json.loads(contact)
+
+    return get_lecturer_as_json({
+        "uuid": uuid,
+        "title_before": title_before,
+        "first_name": first_name,
+        "middle_name": middle_name,
+        "last_name": last_name,
+        "title_after": title_after,
+        "picture_url": picture_url,
+        "location": location,
+        "claim": claim,
+        "bio": bio,
+        "tags": tags,
+        "price_per_hour": price_per_hour,
+        "contact": contact
+    }, uuid, tags_from_db)
+
+
 @app.route("/api/lecturers/<uuid>", methods=["GET", "PUT", "DELETE"])
 @app.route("/api/lecturers", methods=["GET", "POST"], defaults={"uuid": 0})
 def api_lecturers(uuid):
@@ -101,13 +131,17 @@ def api_lecturers(uuid):
         case "GET":
             if not uuid:
                 cursor.execute("SELECT * FROM lecturers")
-                return jsonify(cursor.fetchall()), 200
+                lecturers = cursor.fetchall()
+                all_lecturers = []
+                for lecturer in lecturers:
+                    all_lecturers.append(parse_db_data_to_json(lecturer, cursor))
+                return jsonify(all_lecturers), 200
             else:
                 cursor.execute("SELECT * FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
                 fetch = cursor.fetchall()
                 if not fetch:
                     return {"code": 404, "message": "User not found"}, 404
-                return fetch[0], 200
+                return jsonify(parse_db_data_to_json(fetch[0], cursor)), 200
         case "POST":
             data = request.json
             if not data:
@@ -146,7 +180,7 @@ def api_lecturers(uuid):
 
             cursor.execute("INSERT INTO lecturers VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", value)
             database.commit()
-            return jsonify(return_value), 200
+            return return_value, 200
         case "PUT":
             pass
         case "DELETE":
@@ -161,6 +195,4 @@ def lecturer():
 
 
 if __name__ == '__main__':
-    print(html.escape("<script>alert('dog')</script>"))
-
-    # app.run(debug=True)
+    app.run(debug=True)
