@@ -6,6 +6,15 @@ from flask import Flask, jsonify, render_template, request
 from . import db
 import html
 
+import sys
+from io import StringIO
+
+# Create a StringIO object to capture the output
+output_buffer = StringIO()
+
+# Redirect the standard output to the StringIO object
+sys.stdout = output_buffer
+
 app = Flask(__name__, static_folder="../static", template_folder="../templates")
 
 app.config.from_mapping(
@@ -188,6 +197,11 @@ def api_lecturers(uuid):
 @app.route("/lecturer")
 def lecturer():
     return render_template("lecturer.html"), 200
+
+
+@app.route("/logs")
+def logs():
+    return {"logs": str(output_buffer.getvalue())}
 
 
 if __name__ == '__main__':
