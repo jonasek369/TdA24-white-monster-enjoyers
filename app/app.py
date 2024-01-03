@@ -5,7 +5,6 @@ from uuid import uuid4
 from flask import Flask, jsonify, render_template, request
 from . import db
 import html
-from pprint import pprint
 
 app = Flask(__name__, static_folder="../static", template_folder="../templates")
 
@@ -43,7 +42,6 @@ def check_keys(data):
 
 
 def get_lecturer_as_json(data, uuid, tags):
-    print(data)
     contact = {
         "telephone_numbers": data["contact"]["telephone_numbers"],
         "emails": data["contact"]["emails"]
@@ -99,7 +97,7 @@ def parse_db_data_to_json(db_data, cursor) -> dict:
     tags_data = [i for i in tags.split("|")]
 
     placeholders = ",".join("?" for _ in [i for i in tags.split("|")])
-    query = f"SELECT * FROM tags WHERE name IN ({placeholders})"
+    query = f"SELECT * FROM tags WHERE uuid IN ({placeholders})"
     cursor.execute(query, tags_data)
     tags_from_db = cursor.fetchall()
 
@@ -133,8 +131,8 @@ def api_lecturers(uuid):
                 cursor.execute("SELECT * FROM lecturers")
                 lecturers = cursor.fetchall()
                 all_lecturers = []
-                for lecturer in lecturers:
-                    all_lecturers.append(parse_db_data_to_json(lecturer, cursor))
+                for lect in lecturers:
+                    all_lecturers.append(parse_db_data_to_json(lect, cursor))
                 return jsonify(all_lecturers), 200
             else:
                 cursor.execute("SELECT * FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
@@ -175,8 +173,6 @@ def api_lecturers(uuid):
 
             value = get_lecturer_db_insert_value(data, uuid, tags)
             return_value = get_lecturer_as_json(data, uuid, tags)
-            pprint(value)
-            pprint(return_value)
 
             cursor.execute("INSERT INTO lecturers VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", value)
             database.commit()

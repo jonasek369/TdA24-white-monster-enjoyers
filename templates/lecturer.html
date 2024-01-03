@@ -18,6 +18,9 @@
         <h2>Kontakt</h2>
         <br>
     </div>
+    <div id="tags-card">
+
+    </div>
 </div>
 
 <script>
@@ -34,12 +37,23 @@
             console.log(jsonData);
             jsonData = jsonData[0]
             let card = document.getElementById("business-card");
+            let tag_card = document.getElementById("tags-card")
+
             let nameElement = document.createElement("span");
             let location = document.createElement("p");
             let claim = document.createElement("p");
             let pfp = document.createElement("img");
             let bio = document.createElement("p");
 
+            if(jsonData.tags !== null){
+                Object.entries(jsonData.tags).forEach((entry) => {
+                    const [key, value] = entry;
+                    let tag = document.createElement("p");
+                    tag.innerText = value.name;
+                    // tag.setAttribute("id","tag");
+                    tag_card.append(tag);
+                });
+            }
 
             bio.innerText = jsonData["bio"] || ""
             pfp.src = jsonData["picture_url"] || ""
