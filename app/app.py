@@ -40,6 +40,7 @@ def sanitize_html(input_string):
             tag.replace_with(tag.text)
     return str(soup)
 
+
 def save_conv(value, conv_to):
     try:
         return conv_to(value)
@@ -47,6 +48,7 @@ def save_conv(value, conv_to):
         print(f"exception when converting {value} to {conv_to}: {e}")
         # return default value if error
         return conv_to()
+
 
 def check_keys(data):
     for key in ["first_name", "last_name"]:
@@ -83,8 +85,8 @@ def get_lecturer_as_json(data, uuid, tags):
 
 def get_lecturer_db_insert_value(data, uuid, tags):
     contact = {
-        "telephone_numbers": sanitize_html(json.dumps(data["contact"]["telephone_numbers"])),
-        "emails": sanitize_html(json.dumps(data["contact"]["emails"])),
+        "telephone_numbers": json.loads(sanitize_html(json.dumps(data["contact"]["telephone_numbers"]))),
+        "emails": json.loads(sanitize_html(json.dumps(data["contact"]["emails"]))),
     }
     data = [
         sanitize_html(uuid) if uuid else str(uuid4()),
@@ -156,16 +158,14 @@ def api_lecturers(uuid):
         case "POST":
             data = request.json
             if "tags" not in data:
-                # TODO: Add error response
                 return "?"
             data["tags"] = [{"name": tag["name"].capitalize()} for tag in data["tags"]]
             placeholders = ",".join("?" for _ in data["tags"])
             query = f"SELECT * FROM tags WHERE name IN ({placeholders})"
             cursor.execute(query, [tag["name"] for tag in data["tags"]])
             tags_in_db = [{"uuid": tag["uuid"], "name": tag["name"]} for tag in cursor.fetchall()]
-            tags_not_in_db = [user_tag for user_tag in data["tags"] if user_tag["name"] not in [tag["name"] for tag in tags_in_db]]
-            print(tags_in_db)
-            print(tags_not_in_db)
+            tags_not_in_db = [user_tag for user_tag in data["tags"] if
+                              user_tag["name"] not in [tag["name"] for tag in tags_in_db]]
             tags_to_db = []
             for tag in tags_not_in_db:
                 tags_to_db.append((str(uuid4()), tag["name"]))
@@ -183,7 +183,14 @@ def api_lecturers(uuid):
         case "PUT":
             pass
         case "DELETE":
-            pass
+            if not uuid:
+                return jsonify({"code": 404, "message": "User not found"}), 404
+            cursor.execute("SELECT * FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
+            fetch = cursor.fetchall()
+            if len(fetch) == 0:
+                return {"code": 404, "message": "User not found"}, 404
+            cursor.execute("DELETE FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
+            return {}, 200
         case _:
             return {"message": "Unsupported method", "code": 405}, 405
 
