@@ -5,16 +5,7 @@ from uuid import uuid4
 from flask import Flask, jsonify, render_template, request
 from . import db
 
-import sys
-from io import StringIO
 from bs4 import BeautifulSoup
-
-
-# Create a StringIO object to capture the output
-output_buffer = StringIO()
-
-# Redirect the standard output to the StringIO object
-sys.stdout = output_buffer
 
 app = Flask(__name__, static_folder="../static", template_folder="../templates")
 
@@ -69,8 +60,8 @@ def check_keys(data):
 
 def get_lecturer_as_json(data, uuid, tags):
     contact = {
-        "telephone_numbers": sanitize_html(data["contact"]["telephone_numbers"]),
-        "emails": sanitize_html(data["contact"]["emails"])
+        "telephone_numbers": json.loads(sanitize_html(json.dumps(data["contact"]["telephone_numbers"]))),
+        "emails": json.loads(sanitize_html(json.dumps(data["contact"]["emails"])))
     }
 
     return {
@@ -84,7 +75,7 @@ def get_lecturer_as_json(data, uuid, tags):
         "location": sanitize_html(data.get("location")),
         "claim": sanitize_html(data.get("claim")),
         "bio": sanitize_html(data.get("bio")),
-        "tags": [{"uuid": sanitize_html(tag[0]), "name": sanitize_html(tag[1])} for tag in tags],
+        "tags": [{"uuid": sanitize_html(tag["uuid"]), "name": sanitize_html(tag["name"])} for tag in tags],
         "price_per_hour": save_conv(data.get("price_per_hour"), int),
         "contact": contact
     }
@@ -92,8 +83,8 @@ def get_lecturer_as_json(data, uuid, tags):
 
 def get_lecturer_db_insert_value(data, uuid, tags):
     contact = {
-        "telephone_numbers": data["contact"]["telephone_numbers"],
-        "emails": data["contact"]["emails"],
+        "telephone_numbers": sanitize_html(json.dumps(data["contact"]["telephone_numbers"])),
+        "emails": sanitize_html(json.dumps(data["contact"]["emails"])),
     }
     data = [
         sanitize_html(uuid) if uuid else str(uuid4()),
@@ -106,7 +97,7 @@ def get_lecturer_db_insert_value(data, uuid, tags):
         sanitize_html(data.get("location")),
         sanitize_html(data.get("claim")),
         sanitize_html(data.get("bio")),
-        "|".join([sanitize_html(tag[0]) for tag in tags]),
+        "|".join([sanitize_html(tag["uuid"]) for tag in tags]),
         save_conv(data.get("price_per_hour"), int),
         json.dumps(contact)
     ]
@@ -164,34 +155,24 @@ def api_lecturers(uuid):
                 return jsonify(parse_db_data_to_json(fetch[0], cursor)), 200
         case "POST":
             data = request.json
-            if not data:
-                return {"code": 403, "message": "Cannot add lecturer without any data"}, 403
-            if not check_keys(data):
-                return {"code": 403, "message": "Cannot add lecturer. Json dose not have all the needed keys"}, 403
-            if uuid or uuid != 0 or data.get("uuid") is not None:
-                if not uuid or uuid != 0:
-                    uuid = data["uuid"]
-                cursor.execute("SELECT * FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
-                fetch = cursor.fetchall()
-                if fetch:
-                    return {"code": 403, "message": "Lecturer with this uuid already exists"}, 403
-            else:
-                uuid = str(uuid4())
-            data["tags"] = [tag["name"].capitalize() for tag in data["tags"]]
+            if "tags" not in data:
+                # TODO: Add error response
+                return "?"
+            data["tags"] = [{"name": tag["name"].capitalize()} for tag in data["tags"]]
             placeholders = ",".join("?" for _ in data["tags"])
             query = f"SELECT * FROM tags WHERE name IN ({placeholders})"
-            cursor.execute(query, data["tags"])
-            tags_in_db = cursor.fetchall()
-
-            tags_not_in_db = [tag for tag in data["tags"] if tag not in tags_in_db]
-
+            cursor.execute(query, [tag["name"] for tag in data["tags"]])
+            tags_in_db = [{"uuid": tag["uuid"], "name": tag["name"]} for tag in cursor.fetchall()]
+            tags_not_in_db = [user_tag for user_tag in data["tags"] if user_tag["name"] not in [tag["name"] for tag in tags_in_db]]
+            print(tags_in_db)
+            print(tags_not_in_db)
             tags_to_db = []
             for tag in tags_not_in_db:
-                tags_to_db.append((str(uuid4()), tag))
+                tags_to_db.append((str(uuid4()), tag["name"]))
 
             cursor.executemany("INSERT INTO tags VALUES (?, ?)", tags_to_db)
 
-            tags = tags_in_db + tags_to_db
+            tags = tags_in_db + [{"uuid": tag[0], "name": tag[1]} for tag in tags_to_db]
 
             value = get_lecturer_db_insert_value(data, uuid, tags)
             return_value = get_lecturer_as_json(data, uuid, tags)
