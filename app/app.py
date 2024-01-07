@@ -136,7 +136,7 @@ def parse_db_data_to_json(db_data, cursor) -> dict:
 
 
 @app.route("/api/lecturers/<uuid>", methods=["GET", "PUT", "DELETE"])
-@app.route("/api/lecturers", methods=["GET", "POST"], defaults={"uuid": 0})
+@app.route("/api/lecturers", methods=["GET", "POST"], defaults={"uuid": None})
 def api_lecturers(uuid):
     database = db.get_db()
     cursor = database.cursor()
@@ -151,6 +151,7 @@ def api_lecturers(uuid):
                 return jsonify(all_lecturers), 200
             else:
                 cursor.execute("SELECT * FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
+                # TODO: Expected 404
                 fetch = cursor.fetchall()
                 if not fetch:
                     return {"code": 404, "message": "User not found"}, 404
@@ -187,7 +188,7 @@ def api_lecturers(uuid):
                 return jsonify({"code": 404, "message": "User not found"}), 404
             cursor.execute("SELECT * FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
             fetch = cursor.fetchall()
-            if len(fetch) == 0:
+            if not fetch:
                 return {"code": 404, "message": "User not found"}, 404
             cursor.execute("DELETE FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
             return {}, 200
