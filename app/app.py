@@ -170,7 +170,8 @@ def api_lecturers(uuid):
             for tag in tags_not_in_db:
                 tags_to_db.append((str(uuid4()), tag["name"]))
 
-            cursor.executemany("INSERT INTO tags VALUES (?, ?)", tags_to_db)
+            if tags_to_db:
+                cursor.executemany("INSERT INTO tags VALUES (?, ?)", tags_to_db)
 
             tags = tags_in_db + [{"uuid": tag[0], "name": tag[1]} for tag in tags_to_db]
 
