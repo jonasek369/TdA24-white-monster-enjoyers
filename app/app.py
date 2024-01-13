@@ -151,9 +151,8 @@ def api_lecturers(uuid):
                 return jsonify(all_lecturers), 200
             else:
                 cursor.execute("SELECT * FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
-                # TODO: Expected 404
                 fetch = cursor.fetchall()
-                if not fetch:
+                if len(fetch) == 0:
                     return {"code": 404, "message": "User not found"}, 404
                 return jsonify(parse_db_data_to_json(fetch[0], cursor)), 200
         case "POST":
@@ -188,7 +187,7 @@ def api_lecturers(uuid):
                 return jsonify({"code": 404, "message": "User not found"}), 404
             cursor.execute("SELECT * FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
             fetch = cursor.fetchall()
-            if not fetch:
+            if len(fetch) == 0:
                 return {"code": 404, "message": "User not found"}, 404
             cursor.execute("DELETE FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
             return {}, 200
