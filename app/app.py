@@ -33,6 +33,8 @@ def api():
 
 
 def sanitize_html(input_string):
+    if input_string is None:
+        return None
     soup = BeautifulSoup(input_string, "html.parser")
     allowed_tags = ["b", "i", "u", "br"]
     for tag in soup.find_all(True):
