@@ -245,7 +245,7 @@ def api_lecturers(uuid):
                 is_key, nullable, key_name = is_replacable_key(key)
                 if not is_key:
                     continue
-                if nullable and value is None:
+                if not nullable and value is None:
                     continue
 
                 if key == "contact":

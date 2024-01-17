@@ -55,7 +55,7 @@
                 });
             }
 
-            bio.innerText = jsonData["bio"] || ""
+            bio.innerHTML = jsonData["bio"] || ""
             pfp.src = jsonData["picture_url"] || ""
             location.innerText = `${jsonData["location"] || ""}`;
             claim.innerText = `${jsonData["claim"] || ""}`;
