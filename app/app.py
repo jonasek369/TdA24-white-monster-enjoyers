@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from flask import Flask, jsonify, render_template, request
 from . import db
+import re
 
 from bs4 import BeautifulSoup
 
@@ -21,6 +22,32 @@ except OSError:
 
 db.init_app(app)
 
+replacable_keys = [
+    ("uuid", True),
+    ("title_before", True),
+    ("first_name", False),
+    ("middle_name", True),
+    ("last_name", False),
+    ("title_after", True),
+    ("picture_url", True),
+    ("location", True),
+    ("claim", True),
+    ("bio", True),
+    ("tags", True),
+    ("price_per_hour", True),
+    ("contact", False)
+]
+
+telephone_regex = r"^(?:(?:\+|00)\d{1,3})?[-.\s]?\(?\d{1,4}\)?[-.\s]?\d{1,10}[-.\s]?\d{1,10}$"
+email_regex = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+
+
+def is_replacable_key(key) -> [bool, bool, str]:
+    for rep_key, nullable in replacable_keys:
+        if rep_key == key:
+            return True, nullable, rep_key
+    return False, False
+
 
 @app.route('/')
 def hello_tda():
@@ -35,6 +62,8 @@ def api():
 def sanitize_html(input_string):
     if input_string is None:
         return None
+    if not isinstance(input_string, str):
+        input_string = str(input_string)
     soup = BeautifulSoup(input_string, "html.parser")
     allowed_tags = ["b", "i", "u", "br"]
     for tag in soup.find_all(True):
@@ -52,6 +81,13 @@ def save_conv(value, conv_to):
         return conv_to()
 
 
+def regex_check_list(_list, regex):
+    for number in _list:
+        if re.match(regex, number) is None:
+            return False
+    return True
+
+
 def check_keys(data):
     for key in ["first_name", "last_name"]:
         if key not in data:
@@ -59,6 +95,11 @@ def check_keys(data):
     for nested_keys in [["contact", "telephone_numbers"], ["contact", "emails"]]:
         if not data.get(nested_keys[0]) or nested_keys[1] not in data.get(nested_keys[0]):
             return False
+    if len(data["contact"]["telephone_numbers"]) == 0 or not regex_check_list(data["contact"]["telephone_numbers"],
+                                                                              telephone_regex):
+        return False
+    if len(data["contact"]["emails"]) == 0 or not regex_check_list(data["contact"]["emails"], email_regex):
+        return False
     return True
 
 
@@ -150,19 +191,21 @@ def api_lecturers(uuid):
                 all_lecturers = []
                 for lect in lecturers:
                     all_lecturers.append(parse_db_data_to_json(lect, cursor))
+                cursor.close()
                 return jsonify(all_lecturers), 200
             else:
                 cursor.execute("SELECT * FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
                 fetch = cursor.fetchall()
                 if not fetch:
                     return {"code": 404, "message": "User not found"}, 404
-                return jsonify(parse_db_data_to_json(fetch[0], cursor)), 200
+                json_data = parse_db_data_to_json(fetch[0], cursor)
+                cursor.close()
+                return jsonify(json_data), 200
         case "POST":
             data = request.json
-            if "tags" not in data:
-                return "?"
             if not check_keys(data):
-                return {"code": 405, "message": "bad data"}, 405
+                cursor.close()
+                return {"code": 403, "message": "bad data"}, 403
             uuid = str(uuid4())
             data["tags"] = [{"name": tag["name"].capitalize()} for tag in data["tags"]]
             placeholders = ",".join("?" for _ in data["tags"])
@@ -182,22 +225,84 @@ def api_lecturers(uuid):
 
             value = get_lecturer_db_insert_value(data, uuid, tags)
             return_value = get_lecturer_as_json(data, uuid, tags)
+            if value[2] is None or value[4] is None:
+                cursor.close()
+                return {"code": 403, "message": "missing values"}, 403
             cursor.execute("INSERT INTO lecturers VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", value)
             database.commit()
+            cursor.close()
             return return_value, 200
         case "PUT":
-            return {"message": "not implemented"}, 200
-        case "DELETE":
+            data = request.json
             if not uuid:
+                cursor.close()
                 return jsonify({"code": 404, "message": "User not found"}), 404
             cursor.execute("SELECT * FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
             fetch = cursor.fetchall()
             if not fetch:
+                return jsonify({"code": 404, "message": "User not found"}), 404
+            for key, value in data.items():
+                is_key, nullable, key_name = is_replacable_key(key)
+                if not is_key:
+                    continue
+                if nullable and value is None:
+                    continue
+
+                if key == "contact":
+                    if "telephone_numbers" not in data["contact"] or "emails" not in data["contact"]:
+                        continue
+                    if len(data["contact"]["telephone_numbers"]) == 0 or not regex_check_list(
+                            data["contact"]["telephone_numbers"], telephone_regex):
+                        continue
+                    if len(data["contact"]["emails"]) == 0 or not regex_check_list(data["contact"]["emails"],
+                                                                                   email_regex):
+                        continue
+                    to_db = json.dumps({
+                        "telephone_numbers": json.loads(
+                            sanitize_html(json.dumps(data["contact"]["telephone_numbers"]))),
+                        "emails": json.loads(sanitize_html(json.dumps(data["contact"]["emails"]))),
+                    })
+                elif key == "tags":
+                    data["tags"] = [{"name": tag["name"].capitalize()} for tag in data["tags"]]
+                    placeholders = ",".join("?" for _ in data["tags"])
+                    query = f"SELECT * FROM tags WHERE name IN ({placeholders})"
+                    cursor.execute(query, [tag["name"] for tag in data["tags"]])
+                    tags_in_db = [{"uuid": tag["uuid"], "name": tag["name"]} for tag in cursor.fetchall()]
+                    tags_not_in_db = [user_tag for user_tag in data["tags"] if
+                                      user_tag["name"] not in [tag["name"] for tag in tags_in_db]]
+                    tags_to_db = []
+                    for tag in tags_not_in_db:
+                        tags_to_db.append((str(uuid4()), tag["name"]))
+
+                    if tags_to_db:
+                        cursor.executemany("INSERT INTO tags VALUES (?, ?)", tags_to_db)
+
+                    tags = tags_in_db + [{"uuid": tag[0], "name": tag[1]} for tag in tags_to_db]
+
+                    to_db = "|".join([sanitize_html(tag["uuid"]) for tag in tags])
+                else:
+                    to_db = sanitize_html(value)
+                print(str(key_name), to_db, uuid)
+                cursor.execute(f"UPDATE lecturers SET {str(key_name)}=:data WHERE uuid=:uuid", {"data": to_db, "uuid": uuid})
+            database.commit()
+            json_data = parse_db_data_to_json(fetch[0], cursor)
+            cursor.close()
+            return json_data, 200
+        case "DELETE":
+            if not uuid:
+                cursor.close()
+                return jsonify({"code": 404, "message": "User not found"}), 404
+            cursor.execute("SELECT * FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
+            fetch = cursor.fetchall()
+            if not fetch:
+                cursor.close()
                 return {"code": 404, "message": "User not found"}, 404
             cursor.execute("DELETE FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
             database.commit()
+            cursor.close()
             return {}, 200
         case _:
+            cursor.close()
             return {"message": "Unsupported method", "code": 405}, 405
 
 
