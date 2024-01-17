@@ -46,7 +46,7 @@ def is_replacable_key(key) -> [bool, bool, str]:
     for rep_key, nullable in replacable_keys:
         if rep_key == key:
             return True, nullable, rep_key
-    return False, False
+    return False, False, ""
 
 
 @app.route('/')
