@@ -82,8 +82,8 @@ def save_conv(value, conv_to):
 
 
 def regex_check_list(_list, regex):
-    for number in _list:
-        if re.match(regex, number) is None:
+    for value in _list:
+        if re.match(regex, value) is None:
             return False
     return True
 
@@ -179,7 +179,7 @@ def parse_db_data_to_json(db_data, cursor) -> dict:
 
 
 @app.route("/api/lecturers/<uuid>", methods=["GET", "PUT", "DELETE"])
-@app.route("/api/lecturers", methods=["GET", "PUT", "POST"], defaults={"uuid": None})
+@app.route("/api/lecturers", methods=["GET", "POST"], defaults={"uuid": None})
 def api_lecturers(uuid):
     database = db.get_db()
     cursor = database.cursor()
