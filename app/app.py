@@ -236,11 +236,11 @@ def api_lecturers(uuid):
             data = request.json
             if not uuid:
                 cursor.close()
-                return jsonify({"code": 404, "message": "User not found"}), 404
+                return {"code": 404, "message": "User not found"}, 404
             cursor.execute("SELECT * FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
             fetch = cursor.fetchall()
             if not fetch:
-                return jsonify({"code": 404, "message": "User not found"}), 404
+                return {"code": 404, "message": "User not found"}, 404
             for key, value in data.items():
                 is_key, nullable, key_name = is_replacable_key(key)
                 if not is_key:
@@ -284,13 +284,15 @@ def api_lecturers(uuid):
                     to_db = sanitize_html(value)
                 cursor.execute(f"UPDATE lecturers SET {str(key_name)}=:data WHERE uuid=:uuid", {"data": to_db, "uuid": uuid})
             database.commit()
+            cursor.execute("SELECT * FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
+            fetch = cursor.fetchall()
             json_data = parse_db_data_to_json(fetch[0], cursor)
             cursor.close()
-            return json_data, 200
+            return jsonify(json_data), 200
         case "DELETE":
             if not uuid:
                 cursor.close()
-                return jsonify({"code": 404, "message": "User not found"}), 404
+                return {"code": 404, "message": "User not found"}, 404
             cursor.execute("SELECT * FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
             fetch = cursor.fetchall()
             if not fetch:
@@ -299,7 +301,7 @@ def api_lecturers(uuid):
             cursor.execute("DELETE FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
             database.commit()
             cursor.close()
-            return {}, 200
+            return {}, 204
         case _:
             cursor.close()
             return {"message": "Unsupported method", "code": 405}, 405
