@@ -161,6 +161,9 @@ def api_lecturers(uuid):
             data = request.json
             if "tags" not in data:
                 return "?"
+            if not check_keys(data):
+                return {"code": 405, "message": "bad data"}, 405
+            uuid = str(uuid4())
             data["tags"] = [{"name": tag["name"].capitalize()} for tag in data["tags"]]
             placeholders = ",".join("?" for _ in data["tags"])
             query = f"SELECT * FROM tags WHERE name IN ({placeholders})"
@@ -179,12 +182,11 @@ def api_lecturers(uuid):
 
             value = get_lecturer_db_insert_value(data, uuid, tags)
             return_value = get_lecturer_as_json(data, uuid, tags)
-
             cursor.execute("INSERT INTO lecturers VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", value)
             database.commit()
             return return_value, 200
         case "PUT":
-            pass
+            return {"message": "not implemented"}, 200
         case "DELETE":
             if not uuid:
                 return jsonify({"code": 404, "message": "User not found"}), 404
@@ -193,6 +195,7 @@ def api_lecturers(uuid):
             if not fetch:
                 return {"code": 404, "message": "User not found"}, 404
             cursor.execute("DELETE FROM lecturers WHERE uuid=:uuid", {"uuid": uuid})
+            database.commit()
             return {}, 200
         case _:
             return {"message": "Unsupported method", "code": 405}, 405
