@@ -179,7 +179,7 @@ def parse_db_data_to_json(db_data, cursor) -> dict:
 
 
 @app.route("/api/lecturers/<uuid>", methods=["GET", "PUT", "DELETE"])
-@app.route("/api/lecturers", methods=["GET", "POST"], defaults={"uuid": None})
+@app.route("/api/lecturers", methods=["GET", "PUT", "POST"], defaults={"uuid": None})
 def api_lecturers(uuid):
     database = db.get_db()
     cursor = database.cursor()
@@ -282,7 +282,6 @@ def api_lecturers(uuid):
                     to_db = "|".join([sanitize_html(tag["uuid"]) for tag in tags])
                 else:
                     to_db = sanitize_html(value)
-                print(str(key_name), to_db, uuid)
                 cursor.execute(f"UPDATE lecturers SET {str(key_name)}=:data WHERE uuid=:uuid", {"data": to_db, "uuid": uuid})
             database.commit()
             json_data = parse_db_data_to_json(fetch[0], cursor)
